@@ -2,6 +2,7 @@ import json
 import os
 import tkinter as tk
 from tkinter import messagebox
+from tkinter import simpledialog
 
 
 QUEUE_FILE = "queue.json"
@@ -57,6 +58,8 @@ class PickupQueueApp:
         self.last_played_court1 = []
         self.last_played_court2 = []
         self.undo_snapshot = None
+        self.added_since_play = []
+        self.pending_after_play = []
         self.drag_played_source = None
         self.drag_played_index = None
         self.display_window = None
@@ -64,13 +67,16 @@ class PickupQueueApp:
         self.display_court1 = None
         self.display_court2 = None
         self.display_queue_font = ("Helvetica", 16)
+        self.locked = False
+        self.lock_code = "6600"
+        self.lock_controls = []
 
         self._build_ui()
         self.refresh_list()
         self.refresh_played()
 
     def _build_ui(self):
-        self.root.geometry("640x480")
+        self.root.geometry("900x700")
 
         top = tk.Frame(self.root, padx=10, pady=10)
         top.pack(fill=tk.X)
@@ -82,19 +88,25 @@ class PickupQueueApp:
 
         btn_row = tk.Frame(top)
         btn_row.pack(fill=tk.X, pady=4)
-        tk.Button(btn_row, text="Add", command=self.add_players).pack(side=tk.LEFT)
-        tk.Button(btn_row, text="Clear Queue", command=self.clear_queue).pack(side=tk.LEFT, padx=6)
+        btn_add = tk.Button(btn_row, text="Add", command=self.add_players)
+        btn_add.pack(side=tk.LEFT)
+        btn_clear = tk.Button(btn_row, text="Clear Queue", command=self.clear_queue)
+        btn_clear.pack(side=tk.LEFT, padx=6)
         tk.Button(btn_row, text="Save", command=self.save).pack(side=tk.LEFT)
+        tk.Button(btn_row, text="Unlock", command=self.unlock_controls).pack(side=tk.LEFT, padx=6)
+        tk.Button(btn_row, text="Lock", command=self.lock_controls_ui).pack(side=tk.LEFT)
 
         add_row = tk.Frame(top)
         add_row.pack(fill=tk.X, pady=4)
         tk.Label(add_row, text="Add position:").pack(side=tk.LEFT)
-        tk.Radiobutton(
+        rb_first = tk.Radiobutton(
             add_row, text="First In", variable=self.add_mode, value="first_in"
-        ).pack(side=tk.LEFT, padx=6)
-        tk.Radiobutton(
+        )
+        rb_first.pack(side=tk.LEFT, padx=6)
+        rb_after = tk.Radiobutton(
             add_row, text="After Sitting", variable=self.add_mode, value="after_sitting"
-        ).pack(side=tk.LEFT)
+        )
+        rb_after.pack(side=tk.LEFT)
 
         court_row = tk.Frame(top)
         court_row.pack(fill=tk.X, pady=4)
@@ -162,9 +174,24 @@ class PickupQueueApp:
         bottom = tk.Frame(self.root, padx=10, pady=10)
         bottom.pack(fill=tk.X)
 
-        tk.Button(bottom, text="Remove Selected", command=self.remove_selected).pack(side=tk.LEFT)
-        tk.Button(bottom, text="Move Up", command=lambda: self.move_selected(-1)).pack(side=tk.LEFT, padx=6)
-        tk.Button(bottom, text="Move Down", command=lambda: self.move_selected(1)).pack(side=tk.LEFT)
+        btn_clear_selection = tk.Button(
+            bottom, text="Clear Selection", command=self.clear_selection
+        )
+        btn_clear_selection.pack(side=tk.LEFT)
+        btn_remove = tk.Button(bottom, text="Remove Selected", command=self.remove_selected)
+        btn_remove.pack(side=tk.LEFT, padx=6)
+        btn_rename = tk.Button(bottom, text="Rename", command=self.rename_selected)
+        btn_rename.pack(side=tk.LEFT)
+
+        self.lock_controls = [
+            btn_clear,
+            rb_first,
+            rb_after,
+            btn_clear_selection,
+            btn_remove,
+            btn_rename,
+        ]
+        self.apply_lock_state()
 
     def refresh_list(self):
         self.listbox.delete(0, tk.END)
@@ -187,29 +214,63 @@ class PickupQueueApp:
         self.refresh_display()
 
     def add_players(self):
+        if self.locked:
+            messagebox.showinfo("Locked", "Unlock to add players.")
+            return
         raw = self.entry.get().strip()
         if not raw:
             return
         names = [n.strip() for n in raw.split(",") if n.strip()]
         if not names:
             return
+        existing = set(self.games.keys())
+        dupes = [n for n in names if n in existing]
+        if dupes:
+            messagebox.showinfo(
+                "Duplicate Names",
+                "These names already exist and were not added:\n"
+                + ", ".join(dupes),
+            )
+            names = [n for n in names if n not in existing]
+            if not names:
+                return
         for name in names:
             if name not in self.games:
                 self.games[name] = 0
+        self.added_since_play.extend(names)
         insert_at = self._get_insert_index()
         self.queue[insert_at:insert_at] = names
         self.entry.delete(0, tk.END)
         self.refresh_list()
 
+    def clear_selection(self):
+        if self.locked:
+            messagebox.showinfo("Locked", "Unlock to clear the selection.")
+            return
+        self.last_selected_indices = []
+        self.listbox.selection_clear(0, tk.END)
+
     def remove_selected(self):
+        if self.locked:
+            messagebox.showinfo("Locked", "Unlock to remove players.")
+            return
         sel = list(self.listbox.curselection())
         if not sel:
+            return
+        names = [self.queue[i] for i in sel if i < len(self.queue)]
+        label = names[0] if len(names) == 1 else f"{len(names)} players"
+        if not messagebox.askyesno(
+            "Remove Selected", f"Remove {label} from the queue?"
+        ):
             return
         for i in sorted(sel, reverse=True):
             del self.queue[i]
         self.refresh_list()
 
     def move_selected(self, direction):
+        if self.locked:
+            messagebox.showinfo("Locked", "Unlock to move players.")
+            return
         sel = list(self.listbox.curselection())
         if len(sel) != 1:
             return
@@ -220,6 +281,40 @@ class PickupQueueApp:
         self.queue[idx], self.queue[new_idx] = self.queue[new_idx], self.queue[idx]
         self.refresh_list()
         self.listbox.selection_set(new_idx)
+
+    def rename_selected(self):
+        sel = list(self.listbox.curselection())
+        if len(sel) != 1:
+            messagebox.showinfo("Rename", "Select one player to rename.")
+            return
+        idx = sel[0]
+        old_name = self.queue[idx]
+        new_name = simpledialog.askstring("Rename", f"Edit name for: {old_name}")
+        if new_name is None:
+            return
+        new_name = new_name.strip()
+        if not new_name:
+            return
+        if new_name != old_name and new_name in self.games:
+            messagebox.showinfo("Rename", "That name already exists.")
+            return
+        self.queue[idx] = new_name
+        if old_name in self.games:
+            self.games[new_name] = self.games.pop(old_name)
+        for i, name in enumerate(self.last_played_court1):
+            if name == old_name:
+                self.last_played_court1[i] = new_name
+        for i, name in enumerate(self.last_played_court2):
+            if name == old_name:
+                self.last_played_court2[i] = new_name
+        self.added_since_play = [
+            new_name if n == old_name else n for n in self.added_since_play
+        ]
+        self.pending_after_play = [
+            new_name if n == old_name else n for n in self.pending_after_play
+        ]
+        self.refresh_list()
+        self.refresh_played()
 
     def on_click(self, event):
         self.drag_index = self.listbox.nearest(event.y)
@@ -240,6 +335,11 @@ class PickupQueueApp:
             self.drag_target = None
             return
         if self.drag_target < 0 or self.drag_target >= len(self.queue):
+            self.drag_index = None
+            self.drag_target = None
+            return
+        if self.locked:
+            messagebox.showinfo("Locked", "Unlock to reorder the queue.")
             self.drag_index = None
             self.drag_target = None
             return
@@ -308,9 +408,19 @@ class PickupQueueApp:
         return len(self.queue)
 
     def clear_queue(self):
+        if self.locked:
+            messagebox.showinfo("Locked", "Unlock to clear the queue.")
+            return
         if messagebox.askyesno("Clear Queue", "Clear the entire queue?"):
             self.queue.clear()
+            self.games.clear()
+            self.last_played_court1 = []
+            self.last_played_court2 = []
+            self.undo_snapshot = None
+            self.added_since_play = []
+            self.pending_after_play = []
             self.refresh_list()
+            self.refresh_played()
 
     def select_next(self):
         count = 10 * self.courts.get()
@@ -333,12 +443,17 @@ class PickupQueueApp:
             "court1": list(self.last_played_court1),
             "court2": list(self.last_played_court2),
         }
+        self.added_since_play = []
         selected_players = [self.queue[i] for i in self.last_selected_indices]
         for name in selected_players:
             self.games[name] = self.games.get(name, 0) + 1
         for i in sorted(self.last_selected_indices, reverse=True):
             del self.queue[i]
         self.queue.extend(selected_players)
+        if self.pending_after_play:
+            insert_at = self._get_insert_index()
+            self.queue[insert_at:insert_at] = list(self.pending_after_play)
+            self.pending_after_play = []
         if self.courts.get() == 2:
             self.last_played_court1 = list(selected_players[:10])
             self.last_played_court2 = list(selected_players[10:20])
@@ -371,11 +486,27 @@ class PickupQueueApp:
     def undo_play(self):
         if not self.undo_snapshot:
             return
+        choice = "none"
+        if self.added_since_play:
+            choice = messagebox.askquestion(
+                "Undo Play",
+                "Add players who joined after the last Play now?",
+            )
         self.queue = list(self.undo_snapshot["queue"])
+        if choice == "yes":
+            insert_at = self._get_insert_index()
+            self.queue[insert_at:insert_at] = list(self.added_since_play)
+        elif choice == "no" and self.added_since_play:
+            if messagebox.askyesno(
+                "Undo Play",
+                "Add those players after the next Play instead?",
+            ):
+                self.pending_after_play = list(self.added_since_play)
         self.games = dict(self.undo_snapshot["games"])
         self.last_played_court1 = list(self.undo_snapshot["court1"])
         self.last_played_court2 = list(self.undo_snapshot["court2"])
         self.undo_snapshot = None
+        self.added_since_play = []
         self.refresh_list()
         self.refresh_played()
 
@@ -383,6 +514,25 @@ class PickupQueueApp:
         save_queue(self.queue)
         save_games(self.games)
         messagebox.showinfo("Saved", "Queue saved.")
+
+    def apply_lock_state(self):
+        state = tk.DISABLED if self.locked else tk.NORMAL
+        for w in self.lock_controls:
+            w.config(state=state)
+
+    def unlock_controls(self):
+        code = simpledialog.askstring("Unlock", "Enter unlock code:", show="*")
+        if code is None:
+            return
+        if code == self.lock_code:
+            self.locked = False
+            self.apply_lock_state()
+        else:
+            messagebox.showinfo("Unlock", "Incorrect code.")
+
+    def lock_controls_ui(self):
+        self.locked = True
+        self.apply_lock_state()
 
     def toggle_display(self):
         if self.show_display.get():
