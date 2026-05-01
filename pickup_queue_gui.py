@@ -437,6 +437,12 @@ class PickupQueueApp:
         if not self.last_selected_indices:
             messagebox.showinfo("Play", "No players selected. Use Select Next 10/20 first.")
             return
+        expected_count = 10 * self.courts.get()
+        selected_count = len(self.last_selected_indices)
+        if selected_count != expected_count and not messagebox.askyesno(
+            "Play", f"Are you sure you want to play with {selected_count} people?"
+        ):
+            return
         self.undo_snapshot = {
             "queue": list(self.queue),
             "games": dict(self.games),
