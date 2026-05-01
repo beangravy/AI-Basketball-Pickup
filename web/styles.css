@@ -37,16 +37,16 @@ body {
 
 .app {
   max-width: 1200px;
-  margin: 40px auto 80px;
-  padding: 0 24px 40px;
+  margin: 20px auto 48px;
+  padding: 0 20px 32px;
 }
 
 .hero {
   display: grid;
-  grid-template-columns: minmax(280px, 1.4fr) minmax(240px, 1fr);
-  gap: 24px;
+  grid-template-columns: minmax(260px, 1fr) minmax(360px, 0.9fr);
+  gap: 18px;
   align-items: center;
-  margin-bottom: 32px;
+  margin-bottom: 18px;
 }
 
 .eyebrow {
@@ -58,8 +58,8 @@ body {
 }
 
 h1 {
-  font-size: clamp(2.2rem, 4vw, 3.2rem);
-  margin: 0 0 12px;
+  font-size: clamp(1.8rem, 3vw, 2.5rem);
+  margin: 0 0 8px;
   line-height: 1.1;
 }
 
@@ -80,14 +80,15 @@ h3 {
 
 .stats {
   display: grid;
-  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .stat-card {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 16px;
-  padding: 16px;
+  padding: 12px;
   box-shadow: var(--shadow);
 }
 
@@ -107,9 +108,25 @@ h3 {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 18px;
-  padding: 20px;
+  padding: 16px;
   box-shadow: var(--shadow);
   margin-bottom: 18px;
+}
+
+.main-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.control-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.control-stack .panel {
+  margin-bottom: 0;
 }
 
 .panel-header {
@@ -153,6 +170,33 @@ input[type="text"] {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.control-stack .add-row,
+.control-stack .control-row {
+  flex-direction: column;
+}
+
+.control-stack input[type="text"],
+.control-stack button,
+.control-stack .file-btn {
+  width: 100%;
+}
+
+.control-stack .lock-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.control-stack .lock-panel p {
+  margin: 6px 0 0;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.control-stack .lock-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .queue-actions {
@@ -218,6 +262,16 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 18px;
+}
+
+.queue-dashboard {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.1fr) minmax(320px, 1fr);
+  gap: 18px;
+}
+
+.queue-dashboard .panel {
+  margin-bottom: 0;
 }
 
 .list {
@@ -354,6 +408,15 @@ button:disabled {
 
 @media (max-width: 768px) {
   .hero {
+    grid-template-columns: 1fr;
+  }
+
+  .stats {
+    grid-template-columns: 1fr;
+  }
+
+  .main-layout,
+  .queue-dashboard {
     grid-template-columns: 1fr;
   }
 
