@@ -275,34 +275,43 @@ button:disabled {
 
 .display-shell {
   min-height: 100vh;
-  padding: 40px;
+  padding: 20px 28px 28px;
   background: radial-gradient(circle at top left, rgba(255, 122, 89, 0.16), transparent 50%),
     radial-gradient(circle at top right, rgba(44, 77, 107, 0.3), transparent 45%);
+  display: flex;
+  flex-direction: column;
 }
 
 .display-shell h1 {
-  font-size: clamp(2.5rem, 4vw, 4rem);
-  margin: 0 0 24px;
+  font-size: clamp(1.6rem, 2.2vw, 2.4rem);
+  margin: 0 0 12px;
+  line-height: 1;
 }
 
 .display-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 24px;
+  gap: 20px;
+  flex: 1;
+  min-height: 0;
 }
 
 .display-court,
 .display-queue {
   background: rgba(15, 15, 18, 0.7);
   border-radius: 20px;
-  padding: 20px;
+  padding: 16px;
   border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .display-court h2,
 .display-queue h2 {
   margin-top: 0;
-  font-size: 1.6rem;
+  margin-bottom: 12px;
+  font-size: 1.35rem;
 }
 
 .display-list,
@@ -313,6 +322,22 @@ button:disabled {
   display: grid;
   gap: 12px;
   font-size: clamp(1.4rem, 2vw, 2.4rem);
+  align-content: start;
+  flex: 1;
+  min-height: 0;
+}
+
+.display-list {
+  grid-template-rows: repeat(10, minmax(0, 1fr));
+  font-size: clamp(2rem, min(4.5vw, 6.5vh), 5rem);
+}
+
+.display-list li {
+  display: flex;
+  align-items: center;
+  min-height: 0;
+  overflow: hidden;
+  line-height: 1;
 }
 
 .display-queue-list {

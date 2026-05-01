@@ -18,10 +18,11 @@ document.getElementById("select-next-btn").addEventListener("click", selectNext)
 document.getElementById("play-btn").addEventListener("click", playSelected);
 document.getElementById("undo-btn").addEventListener("click", undoPlay);
 document.getElementById("swap-btn").addEventListener("click", swapSelected);
+document
+  .getElementById("clear-selection-btn")
+  .addEventListener("click", clearSelection);
 document.getElementById("remove-btn").addEventListener("click", removeSelected);
 document.getElementById("rename-btn").addEventListener("click", renameSelected);
-document.getElementById("move-up-btn").addEventListener("click", () => moveSelected(-1));
-document.getElementById("move-down-btn").addEventListener("click", () => moveSelected(1));
 document.getElementById("lock-btn").addEventListener("click", lockControls);
 document.getElementById("unlock-btn").addEventListener("click", unlockControls);
 document.getElementById("display-btn").addEventListener("click", () => {
@@ -259,11 +260,32 @@ function clearQueue() {
     return;
   }
   if (confirm("Clear the entire queue?")) {
-    state.queue = [];
-    state.selectedIndices = [];
+    resetQueueSession();
     persist();
     render();
   }
+}
+
+function resetQueueSession() {
+  state.queue = [];
+  state.games = {};
+  state.selectedIndices = [];
+  state.lastPlayedCourt1 = [];
+  state.lastPlayedCourt2 = [];
+  state.undoSnapshot = null;
+  state.addedSincePlay = [];
+  state.pendingAfterPlay = [];
+  state.courtSelections = { court1: null, court2: null };
+}
+
+function clearSelection() {
+  if (state.locked) {
+    alert("Unlock to clear the selection.");
+    return;
+  }
+  state.selectedIndices = [];
+  persist();
+  renderQueue();
 }
 
 function removeSelected() {
@@ -272,6 +294,13 @@ function removeSelected() {
     return;
   }
   if (!state.selectedIndices.length) {
+    return;
+  }
+  const names = state.selectedIndices
+    .map((index) => state.queue[index])
+    .filter(Boolean);
+  const label = names.length === 1 ? names[0] : `${names.length} players`;
+  if (!confirm(`Remove ${label} from the queue?`)) {
     return;
   }
   const sorted = [...state.selectedIndices].sort((a, b) => b - a);
@@ -320,27 +349,6 @@ function renameSelected() {
     name === oldName ? trimmed : name
   );
   state.selectedIndices = [idx];
-  persist();
-  render();
-}
-
-function moveSelected(direction) {
-  if (state.locked) {
-    alert("Unlock to move players.");
-    return;
-  }
-  if (state.selectedIndices.length !== 1) {
-    return;
-  }
-  const idx = state.selectedIndices[0];
-  const newIndex = idx + direction;
-  if (newIndex < 0 || newIndex >= state.queue.length) {
-    return;
-  }
-  const temp = state.queue[idx];
-  state.queue[idx] = state.queue[newIndex];
-  state.queue[newIndex] = temp;
-  state.selectedIndices = [newIndex];
   persist();
   render();
 }
