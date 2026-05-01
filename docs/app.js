@@ -369,6 +369,14 @@ function playSelected() {
     alert("No players selected. Use Select Next 10/20 first.");
     return;
   }
+  const expectedCount = 10 * state.courts;
+  const selectedCount = state.selectedIndices.length;
+  if (
+    selectedCount !== expectedCount &&
+    !confirm(`Are you sure you want to play with ${selectedCount} people?`)
+  ) {
+    return;
+  }
   state.undoSnapshot = {
     queue: [...state.queue],
     games: { ...state.games },
